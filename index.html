@@ -233,7 +233,7 @@ function viewSet(){
 }
 function ring(p,k){
   const g=goals(),b=burn(day),seg=(r,w,f,c)=>{const C=2*Math.PI*r;return`<circle cx="100" cy="100" r="${r}" fill="none" stroke="#243247" stroke-width="${w}"/><circle cx="100" cy="100" r="${r}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${Math.min(1,f)*C} ${C}" transform="rotate(-90 100 100)"/>`};
-  return`<div class="ring"><svg viewBox="0 0 200 200">${seg(90,14,p/g.protein,'var(--pro)')}${seg(70,10,k/(g.kcal+b),'var(--cal)')}</svg><div class="c"><b>${p}</b><span>of ${g.protein} g protein</span><div class="k">${k} / ${g.kcal+b} kcal${b?' (+'+b+' cardio)':''}</div></div></div>`;
+  return`<div class="ring"><svg viewBox="0 0 200 200">${seg(90,14,p/g.protein,'var(--pro)')}${seg(70,10,k/(g.kcal+b),'var(--cal)')}</svg><div class="c"><b>${p}</b><span>of ${g.protein} g protein</span><div class="k">${k} / ${g.kcal+b} kcal</div></div></div>`;
 }
 function chart(pts,color,unit){
   if(pts.length<2)return'<div class="empty">Log at least 2 entries to see a chart.</div>';
