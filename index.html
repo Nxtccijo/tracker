@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1420">
+<title>Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#0d1420;--card:#16202f;--ink:#eef2f7;--mute:#8593a6;--line:#243247;--cal:#5b8cff;--pro:#27d3b5;--fat:#ffb547;--fib:#b58cff;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 60% at 50% -10%,#1b2b47 0,var(--bg) 60%) fixed;color:var(--ink);font:16px/1.4 Archivo,system-ui,sans-serif;padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
+main{max-width:520px;margin:0 auto;padding:14px}
+h2{font-size:14px;margin:20px 4px 8px;font-weight:600;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
+input,button{font:inherit;color:inherit}
+input,select{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;background:#0d1420}
+input:focus-visible,button:focus-visible{outline:2px solid var(--cal);outline-offset:1px}
+.row{display:flex;gap:8px}.row>*{min-width:0}
+.btn{background:var(--pro);color:#06231e;border:0;border-radius:12px;padding:13px 18px;font-weight:800;cursor:pointer;white-space:nowrap}
+.ghost{background:none;border:1px solid var(--line);color:var(--ink);font-weight:600}
+.x{background:none;border:0;color:var(--mute);font-size:22px;padding:0 8px;cursor:pointer}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d1420ee;backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;padding:15px 0;font-weight:600;color:var(--mute);cursor:pointer}
+nav button.on{color:var(--ink);box-shadow:inset 0 3px var(--pro)}
+.date{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:22px;margin-bottom:10px}
+.ring{position:relative;width:min(260px,70vw);margin:4px auto 14px}
+.ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring b{font-size:54px;font-weight:800;line-height:1}.ring span{color:var(--mute);font-size:13px}
+.ring .k{margin-top:8px;color:var(--cal);font-weight:600;font-size:15px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:#0d1420;border-radius:14px;padding:10px;text-align:center}.tile b{font-size:20px;display:block}.tile span{font-size:12px;color:var(--mute)}
+.hint{color:var(--mute);font-size:13px;margin:8px 4px 0}.note{color:var(--pro);font-size:14px;margin:8px 4px 0}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:7px 13px;font-size:14px;cursor:pointer}
+.item{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}.item:first-child{border-top:0}
+.item .t{flex:1;min-width:0}.item .m{color:var(--mute);font-size:13px}
+.pr{background:var(--fat);color:#1b2430;font-size:12px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:6px}
+.empty{color:var(--mute);text-align:center;padding:10px}
+.big{font-size:38px;font-weight:800;line-height:1}.big small{font-size:14px;font-weight:400;color:var(--mute)}
+svg{width:100%;height:auto;display:block}
+.g3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:8px}
+.srow{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;margin-top:8px}.fl{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:5px}input[type=checkbox]{width:22px;height:22px;padding:0}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:10px}.f label{font-size:12px;color:var(--mute);display:block;margin-bottom:4px}
+.top{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:18px;padding:0 4px}
+details summary{cursor:pointer;color:var(--mute);font-size:14px;margin-top:8px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const KEY='tracker-v1';
+let S={goals:{kcal:2500,protein:150},food:[],lifts:[],bw:[],cardio:[],del:[],prof:{sex:'m',act:1.55,dir:'keep',amt:300,ppk:2,t:0}};
+try{const r=JSON.parse(localStorage.getItem(KEY));if(r)S={...S,...r}}catch(e){}
+const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let timer,syncMsg='',SY={};try{SY=JSON.parse(localStorage.getItem('tracker-sync'))||{}}catch(e){}
+const save=()=>{store();clearTimeout(timer);timer=setTimeout(sync,2000)};
+function mig(){const m={};S.bw.forEach(b=>{b.id=b.id||Date.parse(b.d);if(!m[b.d]||m[b.d].id<b.id)m[b.d]=b});S.bw=Object.values(m)}
+function merge(R){
+  const del=new Set([...(S.del||[]),...(R.del||[])]);S.del=[...del];
+  ['food','lifts','bw','cardio'].forEach(k=>{const m=new Map();[...(R[k]||[]),...S[k]].forEach(x=>{x.id=x.id||Date.parse(x.d);m.set(x.id,x)});S[k]=[...m.values()].filter(x=>!del.has(x.id)).sort((a,b)=>a.id-b.id)});
+  if(R.prof&&(R.prof.t||0)>(S.prof.t||0))S.prof=R.prof;if(R.goals&&(R.goals.t||0)>(S.goals.t||0))S.goals=R.goals;mig();
+}
+const GH=()=>({Authorization:'Bearer '+SY.token,Accept:'application/vnd.github+json'}),GU=()=>`https://api.github.com/repos/${SY.repo}/contents/tracker-data.json`;
+async function sync(){
+  if(!SY.repo||!SY.token)return;
+  try{
+    let sha,rt='',r=await fetch(GU(),{headers:GH(),cache:'no-store'});
+    if(r.ok){const j=await r.json();sha=j.sha;rt=decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));merge(JSON.parse(rt))}
+    else if(r.status!==404)throw new Error(r.status===401?'token rejected':r.status===403||r.status===404?'no access to repo':'error '+r.status);
+    mig();store();const out=JSON.stringify(S);
+    if(out!==rt){const p=await fetch(GU(),{method:'PUT',headers:GH(),body:JSON.stringify({message:'sync',content:btoa(unescape(encodeURIComponent(out))),sha})});if(!p.ok)throw new Error('push failed ('+p.status+')')}
+    syncMsg='Synced at '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  }catch(e){syncMsg='Sync failed: '+e.message}
+  if(!document.activeElement||document.activeElement.tagName!=='INPUT')render();
+}
+function saveSync(){SY={repo:$('#sr').value.trim(),token:$('#st').value.trim()};localStorage.setItem('tracker-sync',JSON.stringify(SY));syncMsg='Syncing…';render();sync()}
+const key=d=>{const z=new Date(d-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+let tab='home',day=key(new Date()),liftSel='',note='';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const id=()=>Date.now()+Math.random(),$=s=>document.querySelector(s),R=Math.round;
+const fmtDay=k=>k===key(new Date())?'Today':new Date(k+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+const shift=n=>{const d=new Date(day+'T12:00');d.setDate(d.getDate()+n);day=key(d);note='';render()};
+
+/* name regex, kcal, protein, carbs, fat, fiber (per 100 g), grams per piece */
+const DB=[
+['peanut butter',588,25,20,50,6,16],['whey|protein (shake|powder)|shake',400,80,8,6,0,30],
+['chicken',165,31,0,3.6,0],['turkey',135,30,0,1,0],['beef|steak|mince',250,26,0,15,0],['pork|bacon',242,27,0,14,0],
+['salmon',208,20,0,13,0],['tuna',116,26,0,1,0],['egg',143,12.6,.7,9.5,0,50],
+['yogh?urt|skyr|quark',63,10,4,.3,0],['milk',46,3.4,4.8,1,0],['cheese',350,25,1.3,27,0,20],['tofu',144,17,3,9,2],
+['lentil',116,9,20,.4,8],['bean|chickpea',127,8.7,23,.5,6.4],['rice',130,2.7,28,.3,.4],
+['pasta|noodle|spaghetti',158,5.8,31,.9,1.8],['fries',312,3.4,41,15,3.8],['potato',87,2,20,.1,1.8],
+['oat|porridge',389,17,66,7,10.6],['bread|toast|sandwich',265,9,49,3.2,2.7,35],['wrap|tortilla',310,8,52,8,3,60],
+['pizza',266,11,33,10,2.3,110],['banana',89,1.1,23,.3,2.6,118],['apple',52,.3,14,.2,2.4,180],['avocado',160,2,9,15,7,150],
+['broccoli|spinach|salad|veg',34,2.8,7,.4,2.6],['tomato',18,.9,3.9,.2,1.2,120],['almond|nut',579,21,22,50,12.5],
+['olive oil|oil',884,0,0,100,0,13],['butter',717,.9,.1,81,0,10],['chocolate',546,5,60,31,7,10]];
+
+function parse(t){
+  const out=[],un=[];
+  t.toLowerCase().split(/,|;|\+|&|\band\b|\bwith\b/).map(s=>s.trim()).filter(Boolean).forEach(s=>{
+    const r=DB.find(r=>new RegExp(r[0]).test(s));if(!r){un.push(s);return}
+    const m=s.match(/(\d+(?:[.,]\d+)?)\s*(kg|g|gr|grams?|ml|l)?(?![a-z])/),lbl=r[0].split('|')[0];
+    let n=m&&parseFloat(m[1].replace(',','.')),u=m&&m[2],g;
+    if(n&&u)g=/^(kg|l)$/.test(u)?n*1000:n;
+    else if(n)g=n*(r[6]||100);
+    else g=(r[6]||150)*(/lot|big|large|huge/.test(s)?1.6:/bit|little|some|small|handful/.test(s)?.5:1);
+    const x=g/100;
+    out.push({n:n&&!u&&r[6]?`${n}× ${lbl}`:`${lbl} ${R(g)}g`,k:R(r[1]*x),p:R(r[2]*x),c:R(r[3]*x),f:R(r[4]*x),fi:R(r[5]*x)});
+  });
+  return{out,un};
+}
+function addText(){
+  const el=$('#ff'),t=el.value.trim();if(!t)return;
+  const{out,un}=parse(t);
+  un.forEach(u=>{
+    const a=(prompt(`I don't know "${u}". Enter for the whole portion: calories, protein, carbs, fat, fiber (e.g. 300, 20, 30, 10, 2)`)||'').split(/[ ,]+/).map(Number).filter(x=>!isNaN(x));
+    if(a.length>=2)out.push({n:u,k:a[0],p:a[1],c:a[2]||0,f:a[3]||0,fi:a[4]||0});
+  });
+  if(!out.length){el.style.borderColor='var(--bad)';return}
+  out.forEach(o=>S.food.push({id:id(),d:day,...o}));
+  const T=k=>out.reduce((a,o)=>a+o[k],0);
+  note=`Added ${T('k')} kcal · ${T('p')} g protein`;save();render();
+}
+function addFood(f){S.food.push({id:id(),d:day,...f});note='';save();render()}
+function delFood(i){S.del.push(i);S.food=S.food.filter(f=>f.id!==i);note='';save();render()}
+function editGoals(){
+  const k=parseInt(prompt('Daily calorie goal',S.goals.kcal)),p=parseInt(prompt('Daily protein goal (g)',S.goals.protein));
+  if(k>0)S.goals.kcal=k;if(p>0)S.goals.protein=p;S.goals.t=Date.now();save();render();
+}
+
+/* name, tags, difficulty (1 easy, 2 medium), ingredients, minutes, steps */
+const MEALS=[
+['Protein shake','shake milk',1,'300ml milk, 1 scoop whey',2,'Pour 300 ml cold milk into a shaker or bottle.|Add 1 scoop of whey (about 30 g).|Shake hard for 20 seconds until there are no clumps.|Drink right away.'],
+['Banana protein shake','shake milk banana',1,'300ml milk, 1 scoop whey, 1 banana',3,'Peel the banana and break it into pieces.|Add the banana, 300 ml milk and 1 scoop whey to a blender.|Blend for 30 seconds until smooth.|Pour and drink.'],
+['Peanut butter shake','shake milk banana',1,'300ml milk, 1 scoop whey, 1 banana, 1 tbsp peanut butter',3,'Peel the banana and break it into pieces.|Add banana, milk, whey and 1 tablespoon peanut butter to a blender.|Blend for 30 to 45 seconds until smooth.|Add a few ice cubes first if you like it cold.'],
+['Skyr oat bowl','skyr oats banana',1,'250g skyr, 1 banana, 30g oats',3,'Spoon 250 g skyr into a bowl.|Slice the banana on top.|Sprinkle 30 g oats over it and stir.|Let it sit 5 minutes if you want softer oats.'],
+['Yogurt and almonds','yogurt snack',1,'250g yogurt, 30g almonds',2,'Spoon 250 g yogurt into a bowl.|Roughly chop 30 g almonds if you like.|Sprinkle them on top and eat.'],
+['Oats with whey','oats shake milk',1,'80g oats, 300ml milk, 1 scoop whey',5,'Put 80 g oats and 300 ml milk in a microwave-safe bowl.|Microwave for 2 minutes, stirring halfway.|Let it cool for 1 minute.|Stir in 1 scoop whey until smooth. Adding it while too hot makes it clump.'],
+['Boiled eggs','eggs snack',1,'3 eggs',10,'Put 3 eggs in a pot and cover with cold water.|Bring to the boil, then cook 9 minutes for firm yolks.|Move the eggs to cold water for 2 minutes.|Peel and eat, with salt if you like.'],
+['Scrambled eggs on toast','eggs bread',1,'4 eggs, 2 slices bread, 1 tbsp butter',8,'Put 2 slices of bread in the toaster.|Melt 1 tablespoon butter in a pan on medium heat.|Whisk 4 eggs with a pinch of salt and pour into the pan.|Stir slowly for 2 to 3 minutes until just set.|Serve on the toast.'],
+['Cheese omelette','eggs cheese',1,'4 eggs, 40g cheese, 100g spinach',10,'Whisk 4 eggs with salt and pepper.|Heat a pan on medium and wilt 100 g spinach for 1 minute.|Pour in the eggs and cook 2 minutes until the edges set.|Add 40 g cheese, fold in half and cook 1 more minute.'],
+['Chicken and rice','chicken rice',1,'200g chicken, 200g rice, 100g broccoli',25,'Cook the rice following the pack (about 70 g dry), or heat a microwave pouch.|Cut 200 g chicken into bite-size pieces and season with salt, pepper and paprika.|Fry in a pan with a little oil on medium-high for 6 to 8 minutes until no pink is left.|Steam or boil 100 g broccoli for 4 minutes.|Plate it all up.'],
+['Chicken pasta','chicken pasta',1,'200g chicken, 200g pasta, 100g tomato',25,'Boil the pasta following the pack (about 70 g dry) and drain.|Cut 200 g chicken into pieces, season and fry 6 to 8 minutes.|Add 100 g chopped tomato for the last 2 minutes.|Stir the pasta in and heat for 1 minute.'],
+['Chicken and potatoes','chicken potato',1,'200g chicken, 300g potato, 100g broccoli',30,'Peel and cut 300 g potato, boil 15 to 20 minutes until a fork goes in easily.|Season 200 g chicken and fry 6 to 8 minutes until cooked through.|Steam or boil the broccoli for 4 minutes.|Drain the potatoes and plate everything.'],
+['Chicken wrap','chicken wrap',1,'150g chicken, 2 wraps, 50g salad, 30g cheese',12,'Cut 150 g chicken into strips, season and fry 5 to 6 minutes.|Warm the wraps for 20 seconds in a pan or microwave.|Put salad, cheese and chicken down the middle of each wrap.|Fold in the sides and roll tightly.'],
+['Turkey wrap','turkey wrap',1,'150g turkey, 2 wraps, 50g salad',5,'Warm the wraps for 20 seconds.|Layer the turkey and salad down the middle.|Fold in the sides and roll up.'],
+['Salmon and rice','salmon rice',1,'150g salmon, 200g rice, 100g broccoli',25,'Heat the oven to 200°C.|Put the salmon on baking paper, season with salt and pepper, bake 12 to 15 minutes.|Cook the rice following the pack (about 70 g dry).|Steam the broccoli for 4 minutes.|Plate it all up.'],
+['Salmon and potatoes','salmon potato',2,'150g salmon, 300g potato, 100g broccoli',35,'Heat the oven to 200°C.|Peel and cut the potatoes, boil 15 to 20 minutes.|Bake the seasoned salmon on baking paper for 12 to 15 minutes.|Steam the broccoli for 4 minutes.|Drain the potatoes and plate everything.'],
+['Tuna pasta','tuna pasta',1,'120g tuna, 200g pasta, 100g tomato',15,'Boil the pasta following the pack (about 70 g dry) and drain.|Drain 120 g tuna and chop 100 g tomato.|Mix everything in the pot and season with pepper.|Add a squeeze of lemon if you have one.'],
+['Tuna sandwich','tuna bread',1,'120g tuna, 2 slices bread, 30g cheese',5,'Drain 120 g tuna and mash it in a bowl with pepper.|Toast the bread if you like.|Spread the tuna on one slice, add the cheese and close.'],
+['Beef mince and rice','beef rice',1,'200g beef mince, 200g rice, 100g tomato',25,'Cook the rice following the pack (about 70 g dry).|Fry 200 g mince in a dry pan on medium-high for 6 to 8 minutes, breaking it up until brown.|Add 100 g chopped tomato, season and simmer 5 minutes.|Serve over the rice.'],
+['Steak and potatoes','beef potato',2,'200g steak, 300g potato, 100g broccoli',35,'Take the steak out of the fridge 15 minutes early, pat dry and salt it.|Peel and cut the potatoes, boil 15 to 20 minutes.|Heat a pan until very hot and sear the steak 3 minutes per side (longer if thick). Rest it 5 minutes.|Steam the broccoli for 4 minutes.|Slice the steak across the grain and plate.'],
+['Tofu rice bowl','tofu rice',1,'200g tofu, 200g rice, 100g broccoli',25,'Press 200 g tofu between kitchen paper for 10 minutes, then cube it.|Cook the rice following the pack (about 70 g dry).|Fry the tofu in a little oil for 8 to 10 minutes until golden, add a splash of soy sauce at the end.|Steam the broccoli for 4 minutes.|Serve everything over the rice.']
+].map(([n,t,d,ing,m,h])=>{const o=parse(ing).out,T=k=>o.reduce((a,x)=>a+x[k],0);return{n,t:t.split(' '),d,ing,m,h:h.split('|'),k:T('k'),p:T('p'),c:T('c'),f:T('f'),fi:T('fi')}});
+let MD=null;
+let F={e:0,t:[]};
+const TAGS=[['shake','Shakes'],['chicken','Chicken'],['rice','Rice'],['pasta','Pasta'],['potato','Potato'],['salmon','Salmon'],['tuna','Tuna'],['eggs','Eggs'],['beef','Beef'],['turkey','Turkey'],['tofu','Tofu']];
+const togTag=t=>{F.t=F.t.includes(t)?F.t.filter(x=>x!==t):[...F.t,t];render()};
+function addMeal(i){const m=MEALS[i];S.food.push({id:id(),d:day,n:m.n,k:m.k,p:m.p,c:m.c,f:m.f,fi:m.fi});note='Added '+m.n;MD=null;save();render()}
+function viewMealDetail(){
+  const m=MEALS[MD],o=parse(m.ing).out,parts=m.ing.split(', '),tl=(v,l,c)=>`<div class="tile"><b${c?` style="color:${c}"`:''}>${v}</b><span>${l}</span></div>`;
+  return`<button class="x" style="font-size:16px;padding:6px 0;color:var(--ink)" onclick="MD=null;render()">‹ Back to meals</button>
+  <div class="date" style="margin:6px 0 2px">${m.n}</div><div class="hint" style="margin:0 4px 12px">${m.m} min · ${m.d===1?'Easy':'Medium'}</div>
+  <div class="card"><div class="tiles" style="grid-template-columns:repeat(4,1fr)">${tl(m.p+'g','Protein','var(--pro)')}${tl(m.k,'kcal','var(--cal)')}${tl(m.c+'g','Carbs')}${tl(m.f+'g','Fat','var(--fat)')}</div></div>
+  <h2>Ingredients</h2><div class="card">${parts.map((x,i)=>`<div class="item"><div class="t">${x}</div><div class="m">${o[i].k} kcal · ${o[i].p} g protein</div></div>`).join('')}<div class="hint">Rice, pasta and potato are cooked weights.</div></div>
+  <h2>Steps</h2><div class="card"><ol style="padding-left:22px;margin:0">${m.h.map(x=>`<li style="padding:7px 0">${x}</li>`).join('')}</ol></div>
+  <button class="btn" style="width:100%" onclick="addMeal(${MD})">Add to ${fmtDay(day).toLowerCase()}</button>`;
+}
+function viewMeals(){
+  if(MD!==null)return viewMealDetail();
+  const g=goals(),es=S.food.filter(f=>f.d===day),remP=R(g.protein-es.reduce((a,f)=>a+f.p,0)),remK=R(g.kcal+burn(day)-es.reduce((a,f)=>a+f.k,0));
+  const list=MEALS.map((m,i)=>({...m,i})).filter(m=>(!F.e||m.d===1)&&(!F.t.length||F.t.some(t=>m.t.includes(t))))
+    .sort((a,b)=>sc(b)-sc(a));
+  function sc(m){return Math.min(m.p,Math.max(remP,0))*2-Math.max(0,m.k-remK)/10}
+  const chip=(on,l,c)=>`<button class="chip" ${on?'style="background:var(--pro);border-color:var(--pro);color:#06231e"':''} onclick="${c}">${l}</button>`;
+  return`<div class="date">Meals</div><div class="card"><div class="big" style="color:var(--pro)">${Math.max(0,remP)} g <small>protein left for ${fmtDay(day).toLowerCase()}</small></div><div class="hint">${Math.max(0,remK)} kcal left. ${remP<=0?'Protein goal reached.':'Best fits are listed first.'}</div></div>
+  ${note?`<div class="note" style="margin:0 4px 8px">${note}</div>`:''}
+  <div class="chips">${chip(F.e,'Easy only','F.e=!F.e;render()')}${TAGS.map(([t,l])=>chip(F.t.includes(t),l,`togTag('${t}')`)).join('')}</div>
+  <div style="height:8px"></div>${list.length?list.map(m=>`<div class="card" style="cursor:pointer" onclick="MD=${m.i};render();scrollTo(0,0)"><div class="row" style="align-items:center"><div style="flex:1"><b style="font-size:18px">${m.n}</b><span class="pr" style="background:${m.d===1?'var(--pro)':'var(--fat)'}">${m.d===1?'EASY':'MEDIUM'}</span></div><button class="btn" onclick="event.stopPropagation();addMeal(${m.i})">Add</button></div>
+  <div style="margin:6px 0 2px"><b style="color:var(--pro)">${m.p} g protein</b> · ${m.k} kcal · ${m.c}g carbs · ${m.f}g fat</div><div class="m hint" style="margin:0">${m.ing}</div><div class="hint">${m.m} min · tap for steps ›</div></div>`).join(''):'<div class="empty">No meals match these filters. Clear a few chips.</div>'}`;
+}
+const nv=x=>parseFloat(String(x).replace(',','.'))||0;
+const lastW=()=>S.bw.length?[...S.bw].sort((a,b)=>a.d<b.d?-1:1).pop().w:75;
+const burn=d=>S.prof.eb===0?0:S.cardio.filter(c=>c.d===d).reduce((a,c)=>a+c.k,0);
+const MET={Cycling:7.5,Rowing:7,Elliptical:5,Stairs:9,Swimming:7};
+function cardioK(a,m,inc,sp){
+  const w=lastW();let perMin;
+  if(a==='Running'||a==='Walking'){const v=(sp||(a==='Running'?10:5))*1000/60,g=inc/100;perMin=(a==='Running'?0.2*v+0.9*v*g:0.1*v+1.8*v*g)*w/1000*5}
+  else perMin=(MET[a]-1)*3.5*w/200;
+  return R(perMin*m);
+}
+let C={a:'Running',m:'',inc:'',sp:''};
+function cv(){const k=cardioK(C.a,nv(C.m),nv(C.inc),nv(C.sp));$('#cp').textContent=k?`≈ ${k} kcal burned`:' '}
+function addCardio(){
+  const m=nv(C.m);if(!(m>0)){alert('Enter how many minutes.');return}
+  const rw=C.a==='Running'||C.a==='Walking',inc=rw?nv(C.inc):0,sp=rw?nv(C.sp):0,k=cardioK(C.a,m,inc,sp);
+  S.cardio.push({id:id(),d:day,a:C.a,m,inc,sp,k});C.m='';note=`Added ${C.a.toLowerCase()}: ${k} kcal burned`;save();render();
+}
+function delCardio(i){S.del.push(i);S.cardio=S.cardio.filter(c=>c.id!==i);save();render()}
+function setEB(v){S.prof.eb=v?1:0;S.prof.t=Date.now();save();render()}
+function viewCardio(){
+  const rw=C.a==='Running'||C.a==='Walking',tot=burn(day)||S.cardio.filter(c=>c.d===day).reduce((a,c)=>a+c.k,0);
+  const k=cardioK(C.a,nv(C.m),nv(C.inc),nv(C.sp)),recent=[...S.cardio].reverse().slice(0,15);
+  return`<div class="date"><button class="x" onclick="shift(-1)" aria-label="Previous day">‹</button>${fmtDay(day)}<button class="x" onclick="shift(1)" aria-label="Next day">›</button></div>
+  <div class="card"><div class="big" style="color:var(--fat)">${tot} <small>kcal burned</small></div></div>
+  <div class="card"><div class="chips" style="margin-top:0">${['Running','Walking','Cycling','Rowing','Elliptical','Stairs','Swimming'].map(a=>`<button class="chip" ${a===C.a?'style="background:var(--cal);border-color:var(--cal)"':''} onclick="C.a='${a}';render()">${a}</button>`).join('')}</div>
+  <div class="f" style="margin-top:10px"><div><label>Minutes</label><input type="text" inputmode="numeric" value="${C.m}" oninput="C.m=this.value;cv()"></div>
+  ${rw?`<div><label>Incline %</label><input type="text" inputmode="decimal" placeholder="0" value="${C.inc}" oninput="C.inc=this.value;cv()"></div><div><label>Speed km/h (optional)</label><input type="text" inputmode="decimal" placeholder="${C.a==='Running'?10:5}" value="${C.sp}" oninput="C.sp=this.value;cv()"></div>`:''}</div>
+  <div class="note" id="cp">${k?`≈ ${k} kcal burned`:' '}</div><button class="btn" style="width:100%;margin-top:8px" onclick="addCardio()">Add cardio</button>
+  <div class="hint">Estimate based on your weight (${lastW()} kg${S.bw.length?'':', log your weight on Home for a better number'}). Resting burn is not counted, to avoid double counting.</div></div>
+  ${note?`<div class="note" style="margin:0 4px 8px">${note}</div>`:''}
+  <label class="card" style="display:flex;gap:12px;align-items:center"><input type="checkbox" ${S.prof.eb!==0?'checked':''} onchange="setEB(this.checked)"><span>Add burned calories to my daily goal<div class="hint" style="margin:0">Your rings and meal suggestions get extra room to eat.</div></span></label>
+  <h2>History</h2><div class="card">${recent.length?recent.map(c=>`<div class="item"><div class="t">${c.a} · ${c.m} min<div class="m">${c.inc?c.inc+'% incline · ':''}${c.sp?c.sp+' km/h · ':''}${fmtDay(c.d)}</div></div><b>${c.k} kcal</b><button class="x" onclick="delCardio(${c.id})" aria-label="Delete">×</button></div>`).join(''):'<div class="empty">No cardio logged yet.</div>'}</div>`;
+}
+function goals(){
+  const p=S.prof,w=S.bw.length?[...S.bw].sort((a,b)=>a.d<b.d?-1:1).pop().w:0;
+  if(p.h>0&&p.age>0&&w>0){const t=(10*w+6.25*p.h-5*p.age+(p.sex==='f'?-161:5))*p.act,adj=p.dir==='cut'?-p.amt:p.dir==='bulk'?p.amt:0;return{kcal:R(t+adj),protein:R(w*(p.ppk||2)),maint:R(t),auto:1}}
+  return{...S.goals,auto:0};
+}
+function setP(k,v){S.prof[k]=['sex','dir'].includes(k)?v:+String(v).replace(',','.');S.prof.t=Date.now();save();render()}
+function viewSet(){
+  const p=S.prof,g=goals(),o=(v,l,c)=>`<option value="${v}" ${c==v?'selected':''}>${l}</option>`;
+  return`<h2>Goals</h2><div class="card"><div class="f">
+  <div><label>Sex</label><select onchange="setP('sex',this.value)">${o('m','Male',p.sex)}${o('f','Female',p.sex)}</select></div>
+  <div><label>Age</label><input type="number" inputmode="numeric" value="${p.age||''}" onchange="setP('age',this.value)"></div>
+  <div><label>Height (cm)</label><input type="number" inputmode="numeric" value="${p.h||''}" onchange="setP('h',this.value)"></div>
+  <div><label>Activity</label><select onchange="setP('act',this.value)">${o(1.2,'Desk job, no sport',p.act)}${o(1.375,'Train 1-3 days',p.act)}${o(1.55,'Train 3-5 days',p.act)}${o(1.725,'Train 6-7 days',p.act)}${o(1.9,'Very hard daily',p.act)}</select></div>
+  <div><label>Goal</label><select onchange="setP('dir',this.value)">${o('cut','Deficit (lose)',p.dir)}${o('keep','Maintain',p.dir)}${o('bulk','Surplus (gain)',p.dir)}</select></div>
+  <div><label>kcal per day</label><input type="number" inputmode="numeric" value="${p.amt||0}" onchange="setP('amt',this.value)" ${p.dir==='keep'?'disabled':''}></div>
+  <div><label>Protein g per kg</label><input type="text" inputmode="decimal" value="${p.ppk||2}" onchange="setP('ppk',this.value)"></div></div>
+  <div class="${g.auto?'note':'hint'}" style="margin-top:12px">${g.auto?`Maintenance ${g.maint} kcal. Your goal: ${g.kcal} kcal and ${g.protein} g protein per day.`:'Log your weight and fill in age and height to calculate your goals.'}</div></div>`;
+}
+function ring(p,k){
+  const g=goals(),b=burn(day),seg=(r,w,f,c)=>{const C=2*Math.PI*r;return`<circle cx="100" cy="100" r="${r}" fill="none" stroke="#243247" stroke-width="${w}"/><circle cx="100" cy="100" r="${r}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${Math.min(1,f)*C} ${C}" transform="rotate(-90 100 100)"/>`};
+  return`<div class="ring"><svg viewBox="0 0 200 200">${seg(90,14,p/g.protein,'var(--pro)')}${seg(70,10,k/(g.kcal+b),'var(--cal)')}</svg><div class="c"><b>${p}</b><span>of ${g.protein} g protein</span><div class="k">${k} / ${g.kcal+b} kcal${b?' (+'+b+' cardio)':''}</div></div></div>`;
+}
+function chart(pts,color,unit){
+  if(pts.length<2)return'<div class="empty">Log at least 2 entries to see a chart.</div>';
+  const W=480,H=200,P=34,ys=pts.map(p=>p.y),lo=Math.min(...ys),hi=Math.max(...ys),pad=((hi-lo)||1)*.15,a=lo-pad,b=hi+pad;
+  const X=i=>P+i*(W-P-12)/(pts.length-1),Y=v=>H-26-(v-a)/(b-a)*(H-44);
+  const d=pts.map((p,i)=>`${X(i)},${Y(p.y)}`).join(' '),gid='g'+color.replace(/\W/g,'');
+  return`<svg viewBox="0 0 ${W} ${H}"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".35"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+  <line x1="${P}" x2="${W-12}" y1="${Y(hi)}" y2="${Y(hi)}" stroke="#243247" stroke-dasharray="4 5"/><line x1="${P}" x2="${W-12}" y1="${Y(lo)}" y2="${Y(lo)}" stroke="#243247" stroke-dasharray="4 5"/>
+  <polygon points="${X(0)},${H-26} ${d} ${X(pts.length-1)},${H-26}" fill="url(#${gid})"/><polyline points="${d}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="${X(pts.length-1)}" cy="${Y(ys[ys.length-1])}" r="6" fill="${color}" stroke="#16202f" stroke-width="3"/>
+  <text x="2" y="${Y(hi)+4}" fill="#8593a6" font-size="12">${hi}</text><text x="2" y="${Y(lo)+4}" fill="#8593a6" font-size="12">${lo}</text>
+  <text x="${P}" y="${H-6}" fill="#8593a6" font-size="12">${pts[0].x.slice(5)}</text><text x="${W-12}" y="${H-6}" text-anchor="end" fill="#8593a6" font-size="12">${pts[pts.length-1].x.slice(5)}</text></svg>`;
+}
+
+function viewHome(){
+  const es=S.food.filter(f=>f.d===day),T=k=>R(es.reduce((a,f)=>a+(f[k]||0),0));
+  const seen={},recent=[...S.food].reverse().filter(f=>!seen[f.n]&&(seen[f.n]=1)).slice(0,10);
+  const ws=[...S.bw].sort((a,b)=>a.d<b.d?-1:1),last=ws[ws.length-1],first=ws[0];
+  return`<div class="date"><button class="x" onclick="shift(-1)" aria-label="Previous day">‹</button>${fmtDay(day)}<button class="x" onclick="shift(1)" aria-label="Next day">›</button></div>
+  <div class="card">${ring(T('p'),T('k'))}
+   <div class="tiles"><div class="tile"><b style="color:var(--cal)">${T('c')}g</b><span>Carbs</span></div><div class="tile"><b style="color:var(--fat)">${T('f')}g</b><span>Fat</span></div><div class="tile"><b style="color:var(--fib)">${T('fi')}g</b><span>Fiber</span></div></div>
+   ${goals().auto?'':'<button class="x" style="font-size:13px;padding:10px 0 0" onclick="editGoals()">Edit goals</button>'}</div>
+  <div class="row"><input id="ff" placeholder="600g chicken, 4 eggs, a bit of rice" enterkeyhint="done" autocomplete="off" onkeydown="if(event.key==='Enter')addText()"><button class="btn" onclick="addText()">Add</button></div>
+  ${note?`<div class="note">${note}</div>`:'<div class="hint">Write what you ate, in grams or pieces. I work out the nutrition.</div>'}
+  ${recent.length?`<div class="chips">${recent.map(f=>`<button class="chip" onclick='addFood(${JSON.stringify({n:f.n,k:f.k,p:f.p,c:f.c||0,f:f.f||0,fi:f.fi||0})})'>${esc(f.n)}</button>`).join('')}</div>`:''}
+  <h2>Eaten</h2><div class="card">${es.length?es.map(f=>`<div class="item"><div class="t">${esc(f.n)}<div class="m">${f.k} kcal · ${f.p}g protein · ${f.c||0}g carbs · ${f.f||0}g fat · ${f.fi||0}g fiber</div></div><button class="x" onclick="delFood(${f.id})" aria-label="Delete">×</button></div>`).join(''):'<div class="empty">Nothing logged yet. Type your first meal above.</div>'}</div>
+  <h2>Body weight</h2><div class="card">
+   ${last?`<div class="big">${last.w} <small>kg${first!==last?` · ${(last.w-first.w>0?'+':'')+(last.w-first.w).toFixed(1)} kg since start`:''}</small></div><div style="height:12px"></div>`:''}
+   ${chart(ws.map(b=>({x:b.d,y:b.w})),'#27d3b5')}
+   <div class="row" style="margin-top:12px"><input id="bw" type="text" inputmode="decimal" placeholder="Today's weight (kg)" onkeydown="if(event.key==='Enter')addBW()"><button class="btn" onclick="addBW()">Log</button></div>
+   ${ws.length?`<details><summary>History</summary>${[...ws].reverse().slice(0,30).map(b=>`<div class="item"><div class="t">${b.w} kg <span class="m">${fmtDay(b.d)}</span></div><button class="x" onclick="delBW('${b.d}')" aria-label="Delete">×</button></div>`).join('')}</details>`:''}</div>
+  ${viewSet()}`;
+}
+function viewSettings(){
+  return`<h2 style="margin-top:10px">Backup</h2><div class="row"><button class="btn ghost" style="flex:1" onclick="exp()">Export backup</button><button class="btn ghost" style="flex:1" onclick="$('#imp').click()">Import</button></div><input id="imp" type="file" accept=".json" hidden onchange="imp(this.files[0])">
+  <h2>Sync with GitHub</h2><div class="card"><input id="sr" placeholder="your-username/tracker-data" value="${esc(SY.repo||'')}" autocomplete="off"><input id="st" type="password" placeholder="Access token" value="${esc(SY.token||'')}" style="margin-top:8px" autocomplete="off"><button class="btn" style="width:100%;margin-top:8px" onclick="saveSync()">Save and sync</button>
+  <div class="note">${syncMsg}</div><details><summary>How to set this up</summary><div class="hint">1. Make a new <b>private</b> repo (not the one hosting this page).<br>2. GitHub → Settings → Developer settings → Fine-grained tokens → new token. Pick only that repo, permission Contents: Read and write.<br>3. Paste repo and token here on each device. The token stays on that device only.</div></details></div>`;
+}
+function addBW(){const w=parseFloat($('#bw').value.replace(',','.'));if(!(w>0))return;const d=key(new Date());S.bw.filter(b=>b.d===d).forEach(b=>S.del.push(b.id));S.bw=S.bw.filter(b=>b.d!==d);S.bw.push({id:id(),d,w});save();render()}
+function delBW(d){S.bw.filter(b=>b.d===d).forEach(b=>S.del.push(b.id));S.bw=S.bw.filter(b=>b.d!==d);save();render()}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='tracker-backup-'+key(new Date())+'.json';a.click()}
+function imp(f){if(!f)return;f.text().then(t=>{try{S={...S,...JSON.parse(t)};save();render();alert('Imported.')}catch(e){alert('That file could not be read.')}})}
+
+let L=null;
+const best=n=>S.lifts.filter(l=>l.n.toLowerCase()===n.toLowerCase()).reduce((m,l)=>Math.max(m,l.w),0);
+function liftOK(){
+  let n=$('#ln').value.trim();if(!n)return;
+  const ls=S.lifts.filter(l=>l.n.toLowerCase()===n.toLowerCase()),d=ls.length&&ls[ls.length-1].d;if(ls.length)n=ls[0].n;
+  const prev=ls.filter(l=>l.d===d);
+  L={n,rows:prev.length?prev.map(l=>({w:l.w,r:l.r,f:false})):[0,1,2].map(()=>({w:'',r:'',f:false}))};render();
+}
+function setN(n){n=Math.max(1,Math.min(15,n|0));while(L.rows.length<n){const p=L.rows[L.rows.length-1];L.rows.push({w:p?p.w:'',r:'',f:false})}L.rows.length=n;render()}
+function viewLift(){
+  const names=[...new Set(S.lifts.map(l=>l.n))],sel=liftSel||names[names.length-1]||'',pts=[],G={};
+  S.lifts.filter(l=>l.n===sel).forEach(l=>{const p=pts[pts.length-1];if(p&&p.x===l.d)p.y=Math.max(p.y,l.w);else pts.push({x:l.d,y:l.w})});
+  [...S.lifts].reverse().forEach(l=>{const k=l.d+'|'+l.n;(G[k]=G[k]||{d:l.d,n:l.n,ls:[]}).ls.unshift(l)});
+  const hist=Object.values(G).slice(0,20);
+  const top=L?`<div class="card"><b style="font-size:22px">${esc(L.n)}</b><div class="hint" style="margin-top:2px">${best(L.n)?'Best so far: '+best(L.n)+' kg. ':''}How many sets?</div>
+  <div class="row" style="margin:8px 0 4px"><button class="btn ghost" onclick="setN(L.rows.length-1)">−</button><input type="number" inputmode="numeric" value="${L.rows.length}" style="text-align:center" onchange="setN(+this.value)"><button class="btn ghost" onclick="setN(L.rows.length+1)">+</button></div>
+  ${L.rows.map((r,i)=>`<div class="srow"><b>${i+1}</b><input type="text" inputmode="decimal" placeholder="kg" value="${r.w}" oninput="L.rows[${i}].w=this.value.replace(',','.')"><input type="number" inputmode="numeric" placeholder="reps" value="${r.r}" oninput="L.rows[${i}].r=this.value"><label class="fl"><input type="checkbox" ${r.f?'checked':''} onchange="L.rows[${i}].f=this.checked">Failure</label></div>`).join('')}
+  <div class="row" style="margin-top:14px"><button class="btn ghost" onclick="L=null;render()">Cancel</button><button class="btn" style="flex:1" onclick="addLift()">Save exercise</button></div></div>`
+  :`<div class="card"><div class="row"><input id="ln" list="ex" placeholder="Exercise (e.g. Bench press)" autocomplete="off" onkeydown="if(event.key==='Enter')liftOK()"><datalist id="ex">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn" onclick="liftOK()">OK</button></div><div class="hint">Type the exercise, press OK, then fill in each set. Your last session is pre-filled.</div></div>`;
+  return`<div class="date">Lifting</div>${top}
+  ${names.length?`<h2>Best weight per day</h2><div class="card"><div class="chips" style="margin-bottom:8px">${names.map(n=>`<button class="chip" ${n===sel?'style="background:var(--cal);border-color:var(--cal)"':''} onclick='liftSel=${JSON.stringify(n)};render()'>${esc(n)}</button>`).join('')}</div>${chart(pts,'#5b8cff')}</div>`:''}
+  <h2>Recent (kg × reps, F = to failure)</h2><div class="card">${hist.length?hist.map(g=>`<div class="item"><div class="t">${esc(g.n)}${g.ls.some(l=>l.pr)?'<span class="pr">PR</span>':''}<div class="m">${g.ls.map(l=>l.s?`${l.s}×${l.r} @ ${l.w}`:`${l.w}×${l.r}${l.fail?' F':''}`).join(' · ')} · ${fmtDay(g.d)}</div></div><button class="x" onclick='delLifts(${JSON.stringify(g.ls.map(l=>l.id))})' aria-label="Delete">×</button></div>`).join(''):'<div class="empty">No exercises logged yet.</div>'}</div>`;
+}
+function addLift(){
+  const rows=L.rows.filter(r=>r.w!==''&&+r.r>0);if(!rows.length){alert('Fill in weight and reps for at least one set.');return}
+  const prev=best(L.n),top=Math.max(...rows.map(r=>+r.w)),d=key(new Date());let flagged=false;
+  rows.forEach(r=>{const pr=prev>0&&+r.w===top&&top>prev&&!flagged;if(pr)flagged=true;S.lifts.push({id:id(),d,n:L.n,w:+r.w,r:+r.r,fail:!!r.f,pr})});
+  liftSel=L.n;L=null;save();render();
+}
+function delLifts(ids){S.del.push(...ids);S.lifts=S.lifts.filter(l=>!ids.includes(l.id));save();render()}
+
+function render(){
+  const top=`<div class="top"><b>${tab==='settings'?'Settings':'Tracker'}</b>${tab==='settings'?`<button class="x" style="font-size:16px;color:var(--ink)" onclick="tab='home';render()">Done</button>`:`<button class="x" style="font-size:26px" aria-label="Settings" onclick="tab='settings';note='';MD=null;render();scrollTo(0,0)">⋮</button>`}</div>`;
+  $('#app').innerHTML=top+({home:viewHome,meals:viewMeals,lift:viewLift,cardio:viewCardio,settings:viewSettings})[tab]();
+  $('#nav').innerHTML=[['home','Home'],['meals','Meals'],['lift','Lifting'],['cardio','Cardio']].map(([t,l])=>`<button class="${t===tab?'on':''}" onclick="tab='${t}';note='';MD=null;render();scrollTo(0,0)">${l}</button>`).join('');
+}
+mig();render();sync();document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
+</script>
+</body>
+</html>
